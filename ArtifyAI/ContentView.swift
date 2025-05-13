@@ -12,35 +12,29 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            Color(.systemGroupedBackground)
-                .ignoresSafeArea()
+            Color(.systemGroupedBackground).ignoresSafeArea()
 
             ScrollView {
                 VStack(spacing: 20) {
-                    // Giriş Logo ve Başlık
+
+                    // Başlık ve logo
                     VStack(spacing: 8) {
                         Image("AppLogo")
                             .resizable()
                             .scaledToFit()
                             .frame(height: 100)
                             .shadow(radius: 5)
-                            .transition(.scale)
 
-                        LinearGradient(
-                            colors: [.pink, .purple, .blue],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                        .mask(
-                            Text("ArtifyAI")
-                                .font(.system(size: 40, weight: .bold, design: .rounded))
-                        )
-                        .frame(height: 50)
+                        LinearGradient(colors: [.pink, .purple, .blue], startPoint: .leading, endPoint: .trailing)
+                            .mask(
+                                Text("ArtifyAI")
+                                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                            )
+                            .frame(height: 50)
                     }
                     .padding(.top)
-                    .animation(.easeInOut(duration: 0.5), value: selectedImage)
 
-                    // Seçilen ve Dönüştürülmüş Görseller Karşılaştırmalı
+                    // Görsel gösterimi
                     if let original = selectedImage {
                         VStack {
                             if showBeforeAfter, let output = transformedImage {
@@ -86,7 +80,7 @@ struct ContentView: View {
                             .padding()
                     }
 
-                    // Fotoğraf Seç
+                    // Fotoğraf Seç Butonu
                     Button("📷 Fotoğraf Seç") {
                         showImagePicker = true
                     }
@@ -130,11 +124,20 @@ struct ContentView: View {
 
                     // Dönüştür Butonu
                     Button("🌀 Dönüştür") {
-                        if let image = selectedImage {
-                            // Geçici simülasyon: aynı fotoğrafı dönüştürülmüş gibi göster
-                            transformedImage = image
-                            UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
-                            showSaveAlert = true
+                        if let image = selectedImage,
+                           let artist = selectedArtist,
+                           let styleImage = getStyleImage(for: artist) {
+                            
+                            sendImagesToServer(contentImage: image, styleImage: styleImage) { stylized in
+                                if let result = stylized {
+                                    DispatchQueue.main.async {
+                                        transformedImage = result
+                                        UIImageWriteToSavedPhotosAlbum(result, nil, nil, nil)
+                                        showSaveAlert = true
+                                        showBeforeAfter = true
+                                    }
+                                }
+                            }
                         }
                     }
                     .disabled(selectedImage == nil || selectedArtist == nil)
@@ -158,8 +161,63 @@ struct ContentView: View {
             ImagePicker(image: $selectedImage)
         }
     }
+
+    // MARK: - Stil Görseli Seçici
+    func getStyleImage(for artist: String) -> UIImage? {
+        switch artist {
+        case "🎨 Van Gogh":
+            return UIImage(named: "vangogh_style")
+        case "🖌 Picasso":
+            return UIImage(named: "picasso_style")
+        default:
+            return nil
+        }
+    }
+
+    // MARK: - API Bağlantısı
+    func sendImagesToServer(contentImage: UIImage, styleImage: UIImage, completion: @escaping (UIImage?) -> Void) {
+        guard let url = URL(string: "http://192.168.X.X:5050/stylize") else { return } // IP'yi burada değiştir
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        let boundary = "Boundary-\(UUID().uuidString)"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        let contentData = contentImage.jpegData(compressionQuality: 0.9)!
+        let styleData = styleImage.jpegData(compressionQuality: 0.9)!
+
+        var body = Data()
+
+        body.append("--\(boundary)\r\n")
+        body.append("Content-Disposition: form-data; name=\"content_image\"; filename=\"content.jpg\"\r\n")
+        body.append("Content-Type: image/jpeg\r\n\r\n")
+        body.append(contentData)
+        body.append("\r\n")
+
+        body.append("--\(boundary)\r\n")
+        body.append("Content-Disposition: form-data; name=\"style_image\"; filename=\"style.jpg\"\r\n")
+        body.append("Content-Type: image/jpeg\r\n\r\n")
+        body.append(styleData)
+        body.append("\r\n")
+
+        body.append("--\(boundary)--\r\n")
+        request.httpBody = body
+
+        URLSession.shared.dataTask(with: request) { data, _, _ in
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let base64String = json["stylized_image"] as? String,
+                  let imageData = Data(base64Encoded: base64String),
+                  let image = UIImage(data: imageData) else {
+                completion(nil)
+                return
+            }
+            completion(image)
+        }.resume()
+    }
 }
 
+// MARK: - ButtonStyle
 struct PressableButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -169,6 +227,16 @@ struct PressableButtonStyle: ButtonStyle {
     }
 }
 
+// MARK: - Multipart Data Helper
+extension Data {
+    mutating func append(_ string: String) {
+        if let data = string.data(using: .utf8) {
+            append(data)
+        }
+    }
+}
+
+// MARK: - Preview
 #Preview {
     ContentView()
 }
