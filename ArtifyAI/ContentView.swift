@@ -17,7 +17,6 @@ struct ContentView: View {
             ScrollView {
                 VStack(spacing: 20) {
 
-                    // Başlık ve logo
                     VStack(spacing: 8) {
                         Image("AppLogo")
                             .resizable()
@@ -34,7 +33,6 @@ struct ContentView: View {
                     }
                     .padding(.top)
 
-                    // Görsel gösterimi
                     if let original = selectedImage {
                         VStack {
                             if showBeforeAfter, let output = transformedImage {
@@ -80,7 +78,6 @@ struct ContentView: View {
                             .padding()
                     }
 
-                    // Fotoğraf Seç Butonu
                     Button("📷 Fotoğraf Seç") {
                         showImagePicker = true
                     }
@@ -93,7 +90,6 @@ struct ContentView: View {
                     .shadow(color: .gray.opacity(0.4), radius: 5, x: 0, y: 4)
                     .padding(.horizontal)
 
-                    // Sanatçı Seçimi
                     Text("Bir sanatçı seç:")
                         .font(.headline)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -122,25 +118,31 @@ struct ContentView: View {
                             .padding(.top, 8)
                     }
 
-                    // Dönüştür Butonu
                     Button("🌀 Dönüştür") {
+                        print("🟡 Dönüştür butonuna basıldı")
+                        print("🧠 selectedImage: \(selectedImage != nil), selectedArtist: \(selectedArtist ?? "nil")")
+
                         if let image = selectedImage,
                            let artist = selectedArtist,
                            let styleImage = getStyleImage(for: artist) {
-                            
+                            print("📤 API isteği gönderiliyor...")
                             sendImagesToServer(contentImage: image, styleImage: styleImage) { stylized in
                                 if let result = stylized {
                                     DispatchQueue.main.async {
+                                        print("✅ API'den stilize görsel geldi")
                                         transformedImage = result
                                         UIImageWriteToSavedPhotosAlbum(result, nil, nil, nil)
                                         showSaveAlert = true
                                         showBeforeAfter = true
                                     }
+                                } else {
+                                    print("❌ Görsel dönüştürülemedi")
                                 }
                             }
+                        } else {
+                            print("⚠️ Gerekli bilgiler eksik")
                         }
                     }
-                    .disabled(selectedImage == nil || selectedArtist == nil)
                     .buttonStyle(PressableButtonStyle())
                     .frame(maxWidth: .infinity)
                     .padding()
@@ -162,7 +164,6 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Stil Görseli Seçici
     func getStyleImage(for artist: String) -> UIImage? {
         switch artist {
         case "🎨 Van Gogh":
@@ -174,17 +175,19 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - API Bağlantısı
     func sendImagesToServer(contentImage: UIImage, styleImage: UIImage, completion: @escaping (UIImage?) -> Void) {
-        guard let url = URL(string: "http://192.168.X.X:5050/stylize") else { return } // IP'yi burada değiştir
+        guard let url = URL(string: "http://172.16.97.120:5050/stylize") else { return }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
 
         let boundary = "Boundary-\(UUID().uuidString)"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
 
-        let contentData = contentImage.jpegData(compressionQuality: 0.9)!
-        let styleData = styleImage.jpegData(compressionQuality: 0.9)!
+        let resizedContent = contentImage.resized(toWidth: 512)
+        let resizedStyle = styleImage.resized(toWidth: 512)
+
+        let contentData = resizedContent.jpegData(compressionQuality: 1.0)!
+        let styleData = resizedStyle.jpegData(compressionQuality: 1.0)!
 
         var body = Data()
 
@@ -217,7 +220,6 @@ struct ContentView: View {
     }
 }
 
-// MARK: - ButtonStyle
 struct PressableButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -227,7 +229,6 @@ struct PressableButtonStyle: ButtonStyle {
     }
 }
 
-// MARK: - Multipart Data Helper
 extension Data {
     mutating func append(_ string: String) {
         if let data = string.data(using: .utf8) {
@@ -236,7 +237,22 @@ extension Data {
     }
 }
 
-// MARK: - Preview
+extension UIImage {
+    func resized(toWidth width: CGFloat) -> UIImage {
+        let scale = width / self.size.width
+        let height = self.size.height * scale
+        let size = CGSize(width: width, height: height)
+
+        UIGraphicsBeginImageContextWithOptions(size, false, 0.0)
+        self.draw(in: CGRect(origin: .zero, size: size))
+        let resizedImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+
+        return resizedImage ?? self
+    }
+}
+
 #Preview {
     ContentView()
 }
+
