@@ -18,7 +18,18 @@ struct ContentView: View {
     @State private var showWelcome = true
     @Environment(\.colorScheme) var colorScheme
 
-    let artists = ["🎨 Van Gogh", "🖌 Picasso", "🌸 Monet", "😱 Munch", "🌟 Klimt", "🌀 Dali"]
+    let artists = [
+        "🎨 Van Gogh",
+        "🖌 Picasso",
+        "🌀 Dali",
+        "😱 Munch",
+        "🌟 Klimt",
+        "🎐 Hokusai",
+        "🎯 Kandinsky",
+        "🎨 Zeid",
+        "🎷 Pollock",
+        "🖌 Bedri Rahmi"
+    ]
 
     var body: some View {
         ZStack {
@@ -230,6 +241,11 @@ struct ContentView: View {
         case "😱 Munch": return "Munch’un"
         case "🌟 Klimt": return "Klimt’in"
         case "🌀 Dali": return "Dali’nin"
+        case "🎐 Hokusai": return "Hokusai’nin"
+        case "🎯 Kandinsky": return "Kandinsky’nin"
+        case "🎨 Zeid": return "Zeki Faik’in"
+        case "🎷 Pollock": return "Pollock’un"
+        case "🖌 Bedri Rahmi": return "Bedri Rahmi’nin"
         default: return "Sanatçının"
         }
     }
@@ -239,10 +255,18 @@ struct ContentView: View {
         switch artist {
         case "🎨 Van Gogh": return UIImage(named: "vangogh_style")
         case "🖌 Picasso": return UIImage(named: "picasso_style")
+        case "🌀 Dali": return UIImage(named: "dali_style")
+        case "😱 Munch": return UIImage(named: "munch_style")
+        case "🌟 Klimt": return UIImage(named: "klimt_style")
+        case "🎐 Hokusai": return UIImage(named: "hokusai_style")
+        case "🎯 Kandinsky": return UIImage(named: "kandinsky_style")
+        case "🎨 Zeid": return UIImage(named: "zeid_style")
+        case "🎷 Pollock": return UIImage(named: "pollock_style")
+        case "🖌 Bedri Rahmi": return UIImage(named: "BedriRahmi_style")
         default: return nil
         }
     }
-
+    
     func sendImagesToServer(contentImage: UIImage, styleImage: UIImage, completion: @escaping (UIImage?) -> Void) {
         guard let url = URL(string: "http://192.168.1.102:5050/stylize") else { return }
         var request = URLRequest(url: url)
